@@ -20,11 +20,11 @@ ylim <- range(mask[, 2])
 a.bb <- diff(xlim)*diff(ylim)
 
 ## Setting parameter values.
-D <- fit.id$results[1, 1]
-lambda0 <- fit.id$results[2, 1]
-sigma <- fit.id$results[3, 1]
-lambda.c <- fit.id$results[4, 1]
-sigma.toa <- fit.id$results[5, 1]/1000
+D <- fit.cuerate$results[1, 1]
+lambda0 <- fit.cuerate$results[2, 1]
+sigma <- fit.cuerate$results[3, 1]
+lambda.c <- fit.cuerate$results[4, 1]
+sigma.toa <- fit.cuerate$results[5, 1]/1000
 pars <- c(D = D, lambda0 = lambda0, sigma = sigma, lambda.c = lambda.c, sigma.toa = sigma.toa)
 ## Start values for scr.fit.
 start <- c(D = D, g0 = lambda0, sigma = sigma,
