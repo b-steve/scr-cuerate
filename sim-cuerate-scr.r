@@ -122,7 +122,6 @@ for (i in 1:n.sims){
     ests2.D <- ests2[1:i, 1]
     boxplot(ests2.D, names = "new", ylim = c(0, max(ests2.D)))
     abline(h = D, lty = "dashed")
-    cat(i, " ")
 }
 
 save.image("sim-results.RData")
