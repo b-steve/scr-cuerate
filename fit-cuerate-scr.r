@@ -25,8 +25,8 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
         ## Creating TOA sum of squares matrix.
         toa_ssq  <- make_toa_ssq(toa, eucdist(traps, mask), speed_sound)
     } else {
-        ## Dummy object if not used.
-        toa_ssq <- matrix(0, nrow = 1, ncol = 1)
+        ## Dummy objects if not used.
+        toa <- toa_ssq <- matrix(0, nrow = 1, ncol = 1)
     }
     ## Sorting capture histories in numerical order by ID.
     uniqueIDs <- sort(unique(ids))
@@ -126,7 +126,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
     ## - First checks to see if TOA is being used,
     ##    then inserts par names in front of "sigma_toa"
     parNames = NULL
-    if(!(is.null(toa) || is.na(toa))) {
+    if(use_toa) {
         parNames = "sigma_toa"
     }
     if (hn) {
