@@ -21,8 +21,11 @@ load("lightfooti.RData")
 source("fit-cuerate-scr.r")
 sourceCpp("fit-cuerate-scr.cpp")
 start <- c(600, 9, 2, 9, 10)
+
+mask <- create.mask(traps, buffer = 15)
+
 fit.cuerate <- cuerate.scr.fit(capt, ids, traps, mask, detfn = "hhn",
-                               start = start, toa = toa, trace = TRUE)
+                               start = start, toa = toa, trace = FALSE)
 ## Parameter estimates.
 fit.cuerate$results
 # [1] 716.981120   7.495377   2.213246   9.070865   1.039855 
