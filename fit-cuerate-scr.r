@@ -9,29 +9,41 @@
 ##   - toa:          Time of arrival matrix in the same structure as the capthist object (optional).
 ##   - speed_sound:  The speed of sound in metres per second.
 cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL, speed_sound = 330, trace = FALSE){
-    ## ids must be 1:N animals
-    ids = as.numeric(factor(ids))
-    ## Number of traps.
-    nTraps <- nrow(traps)
-    ## Number of mask points.
-    nMask <- nrow(mask)
-    ## Area of a single mask point.
-    aMask <- attr(mask, "area")
     ## Indicator for whether or not times of arrival are used.
     use_toa <- !is.null(toa)
-    ## Calculating distances between mask points and detectors.
-    maskDists <- eucdist(mask, traps)
-    if (use_toa){
-        ## Creating TOA sum of squares matrix.
-        toa_ssq  <- make_toa_ssq(toa, eucdist(traps, mask), speed_sound)
+    if (is.list(capthist)){
+        multi.sess <- TRUE
     } else {
-        ## Dummy objects if not used.
-        toa <- toa_ssq <- matrix(0, nrow = 1, ncol = 1)
+        multi.sess <- FALSE
+        capthist <- list(capthist)
+        ids <- list(ids)
+        traps <- list(traps)
+        mask <- list(mask)
+        if (use_toa){
+            toa <- list(toa)
+        }
     }
-    ## Sorting capture histories in numerical order by ID.
-    uniqueIDs <- sort(unique(ids))
-    nAnimals <- length(uniqueIDs)
-
+    n.sessions <- length(capthist)
+    aMask <- maskDists <- toa_ssq <- vector("list", n.sessions)
+    if (!use_toa){
+        toa <- vector("list", n.sessions)
+    }
+    for (i in 1:n.sessions){
+        ## ids must be 1:N animals.
+        ids[[i]] = as.numeric(factor(ids[[i]]))
+        ## Area of a single mask point.
+        aMask[[i]] <- attr(mask[[i]], "area")
+        
+        ## Calculating distances between mask points and detectors.
+        maskDists[[i]] <- eucdist(mask[[i]], traps[[i]])
+        if (use_toa){
+            ## Creating TOA sum of squares matrix.
+            toa_ssq[[i]] <- make_toa_ssq(toa[[i]], eucdist(traps[[i]], mask[[i]]), speed_sound)
+        } else {
+            ## Dummy objects if not used.
+            toa[[i]] <- toa_ssq[[i]] <- matrix(0, nrow = 1, ncol = 1)
+        }
+    }
     ## Indicator for detection function.
     if (detfn == "hn"){
         hn <- TRUE
@@ -52,7 +64,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
         start.link[5] <- log(start[5])
     }
     ## Fitting model.
-    fit <- nlminb(start.link, scr_nll_cuerate,
+    fit <- nlminb(start.link, scr.nll.cuerate.multi,
                   caps = capthist,
                   aMask = aMask,
                   maskDists = maskDists,
@@ -63,7 +75,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
                   hn = hn,
                   trace = trace)
     ## Approximating Hessian.
-    hess <- optimHess(fit$par, scr_nll_cuerate,
+    hess <- optimHess(fit$par, scr.nll.cuerate.multi,
                       caps = capthist,
                       aMask = aMask,
                       maskDists = maskDists,
@@ -147,4 +159,15 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
          speed_sound = speed_sound, ids = ids,
          traps = traps, detfn = detfn, toa = toa, toa_ssq = toa_ssq, hess = hess)
    
+}
+
+scr.nll.cuerate.multi <- function(pars, caps, aMask, maskDists, ID, toa, toa_ssq,
+                                  use_toa, hn, trace, is.multi){
+    n.sessions <- length(caps)
+    sess.nll <- numeric(n.sessions)
+    for (i in 1:n.sessions){
+        sess.nll[i] <- scr_nll_cuerate(pars, caps[[i]], aMask[[i]], maskDists[[i]],
+                                       ID[[i]], toa[[i]], toa_ssq[[i]], use_toa, hn, trace)
+    }
+    sum(sess.nll)
 }
