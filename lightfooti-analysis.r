@@ -22,8 +22,6 @@ source("fit-cuerate-scr.r")
 sourceCpp("fit-cuerate-scr.cpp")
 start <- c(600, 9, 2, 9, 10)
 
-mask <- create.mask(traps, buffer = 15)
-
 fit.cuerate <- cuerate.scr.fit(capt, ids, traps, mask, detfn = "hhn",
                                start = start, toa = toa, trace = FALSE)
 ## Parameter estimates.
@@ -79,3 +77,4 @@ toa.multi[[2]] <- capt.both[[2]]$toa
 ## Multi-session model.
 fit.cuerate.multi <- cuerate.scr.fit(capt.multi, ids.multi, traps.multi, mask.multi, detfn = "hhn",
                                      start = start, toa = toa.multi, trace = FALSE)
+fit.cuerate.multi$results
