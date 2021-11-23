@@ -20,7 +20,7 @@ load("lightfooti.RData")
 ## Sourcing functions.
 source("fit-cuerate-scr.r")
 sourceCpp("fit-cuerate-scr.cpp")
-start <- c(600, 9, 2, 9, 10)
+start <- c(D = 600, lambda0 = 9, sigma = 2, lambda = 9, sigma_toa = 10)
 
 fit.cuerate <- cuerate.scr.fit(capt, ids, traps, mask, detfn = "hhn",
                                start = start, toa = toa, trace = FALSE)
