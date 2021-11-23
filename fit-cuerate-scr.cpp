@@ -35,29 +35,44 @@ double scr_nll_cuerate(const NumericVector& pars,
 		       const bool& use_toa,
 		       const arma::mat& ss,
 		       const bool& use_ss,
+		       const double& ss_cutoff,
 		       const bool& hn,
-		       const bool& trace) {
+		       const bool& trace,
+		       const CharacterVector& par_names) {
   /*
    *  Storing/initialising (starting) parameter values.
    *  - Note that parameters are back-transformed
-   *  - Also note that if use_toa = FALSE, there will be no sigma_toa to estimate
    */
-  double D = exp(pars[0]);
-  double g0;
-  /*
-   * Detection function intercept is on [0, 1] using halfnormal, [0,
-   * Inf) if hazard halfnormal.
-   */
-  if (hn){
-    g0 = R::plogis(pars[1], 0, 1, 1, 0);
-  } else {
-    g0 = exp(pars[1]);
-  }
-  double sigma = exp(pars[2]);
-  double lambda_c = exp(pars[3]);
+  double D = 0;
+  double g0 = 0;
+  double sigma = 0;
+  double lambda0 = 0;
+  double b0_ss = 0;
+  double b1_ss = 0;
+  double lambda_c = 0;
   double sigma_toa = 0;
-  if (use_toa){
-    sigma_toa = exp(pars[4]);
+  double sigma_ss = 0;
+  int n_par = pars.size();
+  for (int i = 0; i < n_par; i++){
+    if (par_names[i] == "D"){
+      D = exp(pars[i]);
+    } else if (par_names[i] == "lambda"){
+      lambda_c = exp(pars[i]);
+    } else if (par_names[i] == "g0"){
+      g0 = R::plogis(pars[i], 0, 1, 1, 0);
+    } else if (par_names[i] == "sigma"){
+      sigma = exp(pars[i]);
+    } else if (par_names[i] == "lambda0"){
+      lambda0 = exp(pars[i]);
+    } else if (par_names[i] == "b0_ss"){
+      b0_ss = exp(pars[i]);
+    } else if (par_names[i] == "b1_ss"){
+      b1_ss = exp(pars[i]);
+    } else if (par_names[i] == "sigma_toa"){
+      sigma_toa = exp(pars[i]);
+    } else if (par_names[i] == "sigma_ss"){
+      sigma_ss = exp(pars[i]);
+    } 
   }
   // Number of animals, calls, mask points
   int nCalls = caps.n_rows;
@@ -76,10 +91,12 @@ double scr_nll_cuerate(const NumericVector& pars,
   arma::mat maskProbs(nMask, nTraps);
   for(int i = 0; i < nMask; i++) {
     for(int j = 0; j < nTraps; j++) {
-      if (hn){
+      if (use_ss){
+	maskProbs(i, j) = R::pnorm(ss_cutoff, b0_ss - b1_ss*maskDists(i, j), sigma_ss, 0, 1);
+      } else if (hn){
 	maskProbs(i, j) = g0 * exp(-pow(maskDists(i, j), 2.0) / (2 * pow(sigma, 2.0))) + DBL_MIN;
       } else {
-	maskProbs(i, j) = 1 - exp(-(g0 * exp(-pow(maskDists(i, j), 2.0) / (2 * pow(sigma, 2.0))))) + DBL_MIN;
+	maskProbs(i, j) = 1 - exp(-(lambda0 * exp(-pow(maskDists(i, j), 2.0) / (2 * pow(sigma, 2.0))))) + DBL_MIN;
       }
     }
   }
@@ -112,7 +129,10 @@ double scr_nll_cuerate(const NumericVector& pars,
   // ========================================= //
   arma::mat fCapt(nMask, nAnimals);
   fCapt.zeros();
-  arma::mat lpTrap = log(maskProbs + DBL_MIN);
+  arma::mat lpTrap(nMask, nTraps);
+  if (!use_ss){
+    lpTrap = log(maskProbs + DBL_MIN);
+  }
   arma::mat lpMiss = log(1-maskProbs + DBL_MIN);
   arma::vec lpDetected = log(pDetected + DBL_MIN);
 
@@ -121,7 +141,18 @@ double scr_nll_cuerate(const NumericVector& pars,
     n_indiv_calls(ID(i) - 1) += 1;
     // Bernoulli capture history
     //----------------------------
-    fCapt.col(ID(i) - 1) += lpTrap*caps.row(i).t() + lpMiss*(1-caps.row(i)).t(); 
+    if (use_ss){
+      lpTrap.zeros();
+      for (int j = 0; j < nTraps; j++){
+	if (caps(i, j) == 1){
+	  for (int k = 0; k < nMask; k++){
+	    lpTrap(k, j) = R::dnorm(ss(i, j), b0_ss - b1_ss*maskDists(k, j), sigma_ss, 1);
+	  }
+	}
+      }
+    }
+    fCapt.col(ID(i) - 1) += lpTrap*caps.row(i).t() + lpMiss*(1-caps.row(i)).t();
+
     fCapt.col(ID(i) - 1) -= lpDetected;
 
     // Time of Arrival:

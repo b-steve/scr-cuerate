@@ -8,7 +8,7 @@
 ##   - start:        Start values for numerical maximisation. Order of parameters is D, lambda0/g0, sigma, lambda_c, sigma_t. 
 ##   - toa:          Time of arrival matrix in the same structure as the capthist object (optional).
 ##   - speed_sound:  The speed of sound in metres per second.
-cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss = NULL, toa = NULL, speed_sound = 330, trace = FALSE){
+cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss = NULL, toa = NULL, speed_sound = 330, ss.cutoff = 0, trace = FALSE){
     ## Indicator for whether or not signal strengths are used.
     use_ss <- !is.null(ss)
     ## Indicator for whether or not times of arrival are used.
@@ -109,8 +109,10 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
                   use_toa = use_toa,
                   ss = ss,
                   use_ss = use_ss,
+                  ss_cutoff = ss.cutoff,
                   hn = hn,
-                  trace = trace)
+                  trace = trace,
+                  par_names = par.names)
     ## Approximating Hessian.
     hess <- optimHess(fit$par, scr.nll.cuerate.multi,
                       caps = capthist,
@@ -121,9 +123,11 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
                       toa_ssq = toa_ssq,
                       use_toa = use_toa,
                       ss = ss,
+                      ss_cutoff = ss.cutoff,
                       use_ss = use_ss,
                       hn = hn,
-                      trace = trace)
+                      trace = trace,
+                      par_names = par.names)
     
     ## Calculating confidence intervals
     ## - Using the (sqrt of) diagonals of (-ve) Hessian obtained from optimHess
@@ -180,13 +184,13 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
 }
 
 scr.nll.cuerate.multi <- function(pars, caps, aMask, maskDists, ID, toa, toa_ssq,
-                                  use_toa, ss, use_ss, hn, trace, is.multi){
+                                  use_toa, ss, use_ss, ss_cutoff, hn, trace, par_names){
     n.sessions <- length(caps)
     sess.nll <- numeric(n.sessions)
     for (i in 1:n.sessions){
         sess.nll[i] <- scr_nll_cuerate(pars, caps[[i]], aMask[[i]], maskDists[[i]],
                                        ID[[i]], toa[[i]], toa_ssq[[i]], use_toa, ss[[i]],
-                                       use_ss, hn, trace)
+                                       use_ss, ss_cutoff, hn, trace, par_names)
     }
     sum(sess.nll)
 }
