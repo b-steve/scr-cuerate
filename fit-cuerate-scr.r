@@ -8,7 +8,9 @@
 ##   - start:        Start values for numerical maximisation. Order of parameters is D, lambda0/g0, sigma, lambda_c, sigma_t. 
 ##   - toa:          Time of arrival matrix in the same structure as the capthist object (optional).
 ##   - speed_sound:  The speed of sound in metres per second.
-cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL, speed_sound = 330, trace = FALSE){
+cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss = NULL, toa = NULL, speed_sound = 330, trace = FALSE){
+    ## Indicator for whether or not signal strengths are used.
+    use_ss <- !is.null(ss)
     ## Indicator for whether or not times of arrival are used.
     use_toa <- !is.null(toa)
     if (is.list(capthist)){
@@ -22,11 +24,17 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
         if (use_toa){
             toa <- list(toa)
         }
+        if (use_ss){
+            ss <- list(ss)
+        }
     }
     n.sessions <- length(capthist)
     aMask <- maskDists <- toa_ssq <- vector("list", n.sessions)
     if (!use_toa){
         toa <- vector("list", n.sessions)
+    }
+    if (!use_ss){
+        ss <- vector("list", n.sessions)
     }
     for (i in 1:n.sessions){
         ## ids must be 1:N animals.
@@ -43,9 +51,21 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
             ## Dummy objects if not used.
             toa[[i]] <- toa_ssq[[i]] <- matrix(0, nrow = 1, ncol = 1)
         }
+        if (!use_ss){
+            ss[[i]] <- matrix(0, nrow = 1, ncol = 1)
+        }
     }
     ## Indicator for detection function.
-    if (detfn == "hn"){
+    if (is.null(detfn) & !use_ss){
+        stop("A detection function must be selected.")
+    }
+    if (use_ss){
+        if (!is.null(detfn)){
+            warning("The choice of detection function is being ignored because signal strengths have been provided.")
+        }
+        detfn <- "ss"
+        hn <- FALSE
+    } else if (detfn == "hn"){
         hn <- TRUE
     } else if (detfn == "hhn"){
         hn <- FALSE
@@ -55,7 +75,9 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
     ## Converting parameters to link scale.
     start.link <- numeric(length(start))
     start.link[c(1, 3, 4)] <- log(start[c(1, 3, 4)])
-    if (hn){
+    if (use_ss){
+        start.link[2] <- start[2]
+    } else if (hn){
         start.link[2] <- qlogis(start[2])
     } else {
         start.link[2] <- log(start[2])
@@ -72,6 +94,8 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
                   toa = toa,
                   toa_ssq = toa_ssq,
                   use_toa = use_toa,
+                  ss = ss,
+                  use_ss = use_ss,
                   hn = hn,
                   trace = trace)
     ## Approximating Hessian.
@@ -83,6 +107,8 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
                       toa = toa,
                       toa_ssq = toa_ssq,
                       use_toa = use_toa,
+                      ss = ss,
+                      use_ss = use_ss,
                       hn = hn,
                       trace = trace)
     
@@ -162,12 +188,13 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn, start, toa = NULL
 }
 
 scr.nll.cuerate.multi <- function(pars, caps, aMask, maskDists, ID, toa, toa_ssq,
-                                  use_toa, hn, trace, is.multi){
+                                  use_toa, ss, use_ss, hn, trace, is.multi){
     n.sessions <- length(caps)
     sess.nll <- numeric(n.sessions)
     for (i in 1:n.sessions){
         sess.nll[i] <- scr_nll_cuerate(pars, caps[[i]], aMask[[i]], maskDists[[i]],
-                                       ID[[i]], toa[[i]], toa_ssq[[i]], use_toa, hn, trace)
+                                       ID[[i]], toa[[i]], toa_ssq[[i]], use_toa, ss[[i]],
+                                       use_ss, hn, trace)
     }
     sum(sess.nll)
 }

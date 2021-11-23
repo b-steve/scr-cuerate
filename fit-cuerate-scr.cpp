@@ -33,6 +33,8 @@ double scr_nll_cuerate(const NumericVector& pars,
 		       const arma::mat& toa,
 		       const arma::mat& toa_ssq,
 		       const bool& use_toa,
+		       const arma::mat& ss,
+		       const bool& use_ss,
 		       const bool& hn,
 		       const bool& trace) {
   /*
