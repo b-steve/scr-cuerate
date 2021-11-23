@@ -73,18 +73,31 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
         stop("The argument detfn must either be 'hn' or 'hhn'.")
     }
     ## Converting parameters to link scale.
-    start.link <- numeric(length(start))
-    start.link[c(1, 3, 4)] <- log(start[c(1, 3, 4)])
+    start.link <- numeric(6)
+    names(start.link) <- c("D", "df1", "df2", "lambda", "sigma_toa", "sigma_ss")
+    start.link["D"] <- log(start["D"])
+    start.link["lambda"] <- log(start["lambda"])
     if (use_ss){
-        start.link[2] <- start[2]
+        names(start.link)[c(2, 3)] <- c("b0_ss", "b1_ss")
+        start.link["b0_ss"] <- log(start["b0_ss"])
+        start.link["b1_ss"] <- log(start["b1_ss"])
+        start.link["sigma_ss"] <- log(start["sigma_ss"])
     } else if (hn){
-        start.link[2] <- qlogis(start[2])
+        names(start.link)[c(2, 3)] <- c("g0", "sigma")
+        start.link["g0"] <- qlogis(start["g0"])
+        start.link["sigma"] <- log(start["sigma"])
     } else {
-        start.link[2] <- log(start[2])
+        names(start.link)[c(2, 3)] <- c("lambda0", "sigma")
+        start.link["lambda0"] <- log(start["lambda0"])
+        start.link["sigma"] <- log(start["sigma"])
     }
     if (use_toa){
-        start.link[5] <- log(start[5])
+        start.link["sigma_toa"] <- log(start["sigma_toa"])
     }
+    start <- c(start[1:4], start["sigma_toa"][use_toa], start["sigma_ss"][use_ss])
+    start.link <- c(start.link[1:4], start.link["sigma_toa"][use_toa], start.link["sigma_ss"][use_ss])
+    n.pars <- length(start)
+    par.names <- names(start)
     ## Fitting model.
     fit <- nlminb(start.link, scr.nll.cuerate.multi,
                   caps = capthist,
@@ -120,6 +133,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
     ## Note: fitted pars must be on LINK scale
     ##     : if matrix is singular, none of the SEs or CIs are calculated (inherits/try statement)
     fittedPars = fit$par
+    names(fittedPars) <- par.names
     if(inherits(try(solve(hess), silent = TRUE), "try-error")) {
         ## Hessian is singular
         warning("Warning: singular hessian")
@@ -131,54 +145,32 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
     } else {
         ## Calculating basic Wald CIs
         se = sqrt(diag(solve(hess)))
-        waldCI = t(sapply(1:length(fittedPars),
-                          function(i) fittedPars[i] + (c(-1, 1) * (qnorm(0.975) * se[i]))))
-        ## Back-transforming the confidence limits, depending on whether we're using lambda0 or g0
-        if(hn) {
-            waldCI = rbind(exp(waldCI[1, ]),
-                           plogis(waldCI[2, ]),
-                           exp(waldCI[3:length(fittedPars), ]))
-        } else {
-            waldCI = exp(waldCI)
+        waldCI.link = t(sapply(1:length(fittedPars),
+                               function(i) fittedPars[i] + (c(-1, 1) * (qnorm(0.975) * se[i]))))
+        G.mult <- numeric(n.pars)
+        waldCI <- 0*waldCI.link
+        ## Back-transforming the confidence limits.
+        for (i in par.names){
+            if (i %in% c("D", "b0_ss", "b1_ss", "sigma_ss", "lambda0", "sigma", "lambda", "sigma_toa")){
+                waldCI[par.names == i, ] <- exp(waldCI.link[par.names == i, ])
+                G.mult[par.names == i] <- exp(fittedPars[i])
+                fittedPars[i] <- exp(fittedPars[i])
+            }
+            if (i == "g0"){
+                waldCI[par.names == i, ] <- plogis(waldCI.link[par.names == i, ])
+                G.mult[par.names == i] <- dlogis(fittedPars[i])
+                fittedPars[i] <- plogis(fittedPars[i])
+            }
         }
-        
         ## Using the delta method to get the standard errors
         ## - G = jacobian matrix of partial derivatives of back-transformed
         ##    - i.e. log(D) -> exp(D) -- deriv. --> exp(D)
         ##    - Note: 1st deriv of plogis (CDF) = dlogis (PDF)
-        if (hn){
-            G.mult <- c(exp(fittedPars[1]),
-                        dlogis(fittedPars[2]),
-                        exp(fittedPars[3:length(fittedPars)]))
-        } else {
-            G.mult <- c(exp(fittedPars[1]),
-                        exp(fittedPars[2]),
-                        exp(fittedPars[3:length(fittedPars)]))
-        }
         G = diag(length(fittedPars)) * G.mult
         se = sqrt(diag(G %*% solve(hess) %*% t(G)))
     }
-    
-    
-    ## Returning the fitted parameters in a named vector
-    ## - First checks to see if TOA is being used,
-    ##    then inserts par names in front of "sigma_toa"
-    parNames = NULL
-    if(use_toa) {
-        parNames = "sigma_toa"
-    }
-    if (hn) {
-        parNames = c("D", "g0", "sigma", "lambda", parNames)
-        fittedPars = c(exp(fittedPars[1]),
-                       plogis(fittedPars[2]),
-                       exp(fittedPars[3:length(fittedPars)]))
-    }else {
-        parNames = c("D", "lambda0", "sigma", "lambda", parNames)
-        
-        fittedPars = exp(fittedPars)
-    }
     results = cbind(fittedPars, se, waldCI)
-    dimnames(results) = list(parNames, c("Estimate", "SE", "Lower", "Upper"))
+    dimnames(results) = list(par.names, c("Estimate", "SE", "Lower", "Upper"))
     ## Returning a list with everything.
     list(results = results, capthist = capthist, 
          mask = mask, aMask = aMask, maskDists = maskDists, 
