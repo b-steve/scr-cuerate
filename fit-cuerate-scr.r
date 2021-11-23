@@ -4,11 +4,38 @@
 ##   - ids:          A vector of IDs, where each element indicates which individual is associated with each capture history.
 ##   - traps:        Matrix of detector locations.
 ##   - mask:         Mask object with points for numerical integration over activity centre locations. Must include an attribute called "area", providing the area covered by a single point.
-##   - detfn:        The detection function to use; either "hn" (halfnormal) or "hhn" (hazard halfnormal).
-##   - start:        Start values for numerical maximisation. Order of parameters is D, lambda0/g0, sigma, lambda_c, sigma_t. 
+##   - detfn:        The detection function to use; either "hn" (halfnormal) or "hhn" (hazard halfnormal). If signal strengths are provided, then this argument is ignored and a signal strength detection function is used.
+##   - start:        A named vector of start values for numerical maximisation. See the model parameters below for names.
 ##   - toa:          Time of arrival matrix in the same structure as the capthist object (optional).
+##   - ss:           Signal strength matrix in the same structure as the capthist object (optional).
 ##   - speed_sound:  The speed of sound in metres per second.
-cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss = NULL, toa = NULL, speed_sound = 330, ss.cutoff = 0, trace = FALSE){
+##   - ss_cutoff:    A signal strength cutoff. See Stevenson et al (2015).
+##
+## For multisession models, capthist, ids, traps, mask, toa, and ss can be lists, where each component of the list corresponds to a single session.
+## 
+## Model parameters:
+##
+## Mandatory:
+## - D:         Animals per hectare.
+## - lambda:    Expected number of calls per individual.
+##
+## When using the halfnormal detection function:
+## - g0:        Detection function intercept.
+## - sigma:     Detection function spatial scale.
+##
+## When using the hazard halfnormal detection function:
+## - lambda0:   Detection function intercept on the hazard scale.
+## - sigma:     Detection function spatial scale.
+##
+## When time-of-arrival data are provided:
+## - sigma_toa: Measurement error of times-of-arrival.
+##
+## When signal strength data are provided:
+## - b0_ss:     Source signal strength.
+## - b1_ss:     Signal strength loss per metre.
+## - sigma_ss:  Measurement error of signal strengths.
+
+cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, toa = NULL, ss = NULL , speed_sound = 330, ss_cutoff = 0, trace = FALSE){
     ## Indicator for whether or not signal strengths are used.
     use_ss <- !is.null(ss)
     ## Indicator for whether or not times of arrival are used.
@@ -109,7 +136,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
                   use_toa = use_toa,
                   ss = ss,
                   use_ss = use_ss,
-                  ss_cutoff = ss.cutoff,
+                  ss_cutoff = ss_cutoff,
                   hn = hn,
                   trace = trace,
                   par_names = par.names)
@@ -123,7 +150,7 @@ cuerate.scr.fit <- function(capthist, ids, traps, mask, detfn = NULL, start, ss 
                       toa_ssq = toa_ssq,
                       use_toa = use_toa,
                       ss = ss,
-                      ss_cutoff = ss.cutoff,
+                      ss_cutoff = ss_cutoff,
                       use_ss = use_ss,
                       hn = hn,
                       trace = trace,
