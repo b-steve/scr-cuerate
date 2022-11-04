@@ -56,25 +56,3 @@ fit.call <- fit.ascr(capt = list(bincapt = capt, toa = toa),
                      traps = traps, mask = mask, detfn = "hhn", trace = FALSE)
 ## Note that D here is call density (calls per hectare per minute).
 summary(fit.call)
-
-#save(fit.cuerate, fit.call, capt, ids, traps, mask, toa, capt.both, ids.both, esa, file = "fit-cuerate.RData")
-
-
-
-
-## Trying out multi-session model fits.
-capt.multi <- ids.multi <- traps.multi <- mask.multi <- toa.multi <- vector("list", length = 2)
-capt.multi[[1]] <- capt.both[[1]]$bincapt
-capt.multi[[2]] <- capt.both[[2]]$bincapt
-ids.multi[[1]] <- ids[ids < 100]
-ids.multi[[2]] <- ids[ids >= 100]
-traps.multi[[1]] <- traps
-traps.multi[[2]] <- traps
-mask.multi[[1]] <- mask
-mask.multi[[2]] <- mask
-toa.multi[[1]] <- capt.both[[1]]$toa
-toa.multi[[2]] <- capt.both[[2]]$toa
-## Multi-session model.
-fit.cuerate.multi <- cuerate.scr.fit(capt.multi, ids.multi, traps.multi, mask.multi, detfn = "hhn",
-                                     start = start, toa = toa.multi, trace = FALSE)
-fit.cuerate.multi$results
